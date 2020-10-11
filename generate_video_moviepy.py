@@ -159,11 +159,12 @@ def main(in_filename, out_filename):
     audio_clip = ffmpeg.input(
         "/Users/ran.xu/Documents/sf_projects/commerce_vid_gen/data/music/happy1.mp3")
 
+    # min 1350 1234
     fps = 25
     end_frm = 0
     total_dur = 0
     template = zoom_in_hold_func
-    effect = 'multicrop'
+    #effect = 'translate'
     use_ffmpeg = False
     with open(in_filename) as csvfile:
         readCSV = csv.reader(csvfile, delimiter=',')
@@ -172,14 +173,47 @@ def main(in_filename, out_filename):
             image_name = row[0]
             im = Image.open(image_name)
             screensize = (im.width, im.height-50)
-            # pdb.set_trace()
             duration = int(row[1])
+            effect = str(row[2].strip())
             end_frm += duration * fps
             total_dur += duration
-            # pdb.set_trace()
             if use_ffmpeg:
                 pass
             else:
+                if effect == 'translate':
+                    clip = translate_imageclip(image_name, duration,
+                                               hold_timepoint=3, zoom_in_rate=0.15,
+                                               hs=-30, ht=0, ws=0, wt=0,
+                                               input_h=im.height, output_h=im.height-30,
+                                               input_w=im.width, output_w=im.width,
+                                               )
+                    # .set_audio(audio_clip)
+                    clip = CompositeVideoClip([clip], size=screensize)
+                    clip.write_videofile('{}.mp4'.format(image_name), fps=fps)
+                    clip_list.append(ffmpeg.input('{}.mp4'.format(image_name)))
+                elif effect == 'zoom_in_hold':
+                    clip = zoom_imageclip(image_name, duration, zoom_in_hold_func,
+                                          hold_timepoint=3, zoom_in_rate=0.15)
+                    # .set_audio(audio_clip)
+                    clip = CompositeVideoClip([clip], size=screensize)
+                    clip.write_videofile('{}.mp4'.format(image_name), fps=fps)
+                    clip_list.append(ffmpeg.input('{}.mp4'.format(image_name)))
+                elif effect == 'zoom_out_hold':
+                    clip = zoom_imageclip(image_name, duration, zoom_out_hold_func,
+                                          hold_timepoint=3, zoom_in_rate=0.15)
+                    # .set_audio(audio_clip)
+                    clip = CompositeVideoClip([clip], size=screensize)
+                    clip.write_videofile('{}.mp4'.format(image_name), fps=fps)
+                    clip_list.append(ffmpeg.input('{}.mp4'.format(image_name)))
+                elif effect == 'multicrop':
+                    duration_per_crop = 1
+                    clip_list_per_video = multicrop_imageclip(
+                        image_name, duration, duration_per_crop, w=screensize[0], h=screensize[1])
+                    clip_list += clip_list_per_video
+                else:
+                    raise NotImplementedError
+
+                """
                 if effect == 'translate':
                     clip = translate_imageclip(image_name, duration,
                                                hold_timepoint=3, zoom_in_rate=0.15,
@@ -203,10 +237,11 @@ def main(in_filename, out_filename):
                     clip_list_per_video = multicrop_imageclip(
                         image_name, duration, duration_per_crop, w=screensize[0], h=screensize[1])
                     clip_list += clip_list_per_video
-    a1 = audio_clip.audio.filter('atrim', duration=total_dur)
-
-    ffmpeg.concat(*clip_list).output(a1,
-                                     out_filename).run(overwrite_output=True)
+                """
+    #a1 = audio_clip.audio.filter('atrim', duration=total_dur)
+    # ffmpeg.concat(*clip_list).output(a1,
+    #                                 out_filename).run(overwrite_output=True)
+    ffmpeg.concat(*clip_list).output(out_filename).run(overwrite_output=True)
 
 
 def gen_video(images, out_filename, effect=None, music=None):
